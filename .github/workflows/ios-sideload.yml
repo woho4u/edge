@@ -11,6 +11,10 @@ name: ios-sideload
 
 on:
   workflow_dispatch:
+    inputs:
+      runner:
+        description: 'macOS runner label (try another when one has no capacity)'
+        default: 'macos-latest'
   push:
     tags: ['ws-*']
 
@@ -34,7 +38,7 @@ jobs:
       - run: flutter test --reporter expanded
 
   ios:
-    runs-on: macos-latest
+    runs-on: ${{ inputs.runner || 'macos-latest' }}
     steps:
       - uses: actions/checkout@v4
         with:
