@@ -1,0 +1,84 @@
+name: ios-sideload
+
+# Fork-only build of an unsigned iOS .ipa with the cracked-whoop sleep stager
+# (woho4u/analytics @ whoopsleep-v8). Mirrors build.yml's `ios` job without
+# the upstream release guards, Firebase secrets or Android signing: Firebase
+# keeps the committed dummy options and the generated placeholder plist, so
+# telemetry is inert. Install the .ipa with Sideloadly / AltStore.
+#
+# Run it from the Actions tab (workflow_dispatch), or push a `ws-*` tag to
+# also attach the .ipa to a GitHub release.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['ws-*']
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    # Informational: the edge suite on this branch (some upstream tests may
+    # pin the old rule stager's numbers). Never blocks the .ipa.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.6'
+      - run: flutter pub get
+      - run: flutter test --reporter expanded
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.6'   # same pin as build.yml
+
+      - name: Write .env (no backend, no health-data contribution)
+        run: |
+          echo "COMPANION_URL=" > .env
+          echo "BACKEND_URL=" >> .env
+
+      - name: Install flutterfire (Crashlytics build phase; failure-tolerant)
+        run: dart pub global activate flutterfire_cli 1.4.0
+
+      - run: flutter pub get
+
+      - name: Build unsigned iOS app
+        run: flutter build ios --release --no-codesign --dart-define-from-file=.env
+
+      # See build.yml: the Watch companion cannot survive a per-user resign.
+      - name: Strip Watch companion
+        run: rm -rf "build/ios/iphoneos/Runner.app/Watch"
+
+      - name: Package unsigned IPA
+        id: ipa
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -R Runner.app Payload/Runner.app
+          IPA="$GITHUB_WORKSPACE/openstrap-edge-whoopsleep-${GITHUB_REF_NAME}-unsigned.ipa"
+          zip -qr -y "$IPA" Payload
+          echo "ipa=$IPA" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openstrap-edge-whoopsleep-ipa
+          path: ${{ steps.ipa.outputs.ipa }}
+
+      - name: Attach IPA to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/ws-')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.ipa.outputs.ipa }}
+          prerelease: true

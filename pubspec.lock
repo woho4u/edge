@@ -937,9 +937,9 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "3a7ca34d30233ff11e6c2877083f319a907ccb31"
-      resolved-ref: "3a7ca34d30233ff11e6c2877083f319a907ccb31"
-      url: "https://github.com/OpenStrap/analytics.git"
+      ref: "899245662344b67843450eb7c14c3f71a61b5207"
+      resolved-ref: "899245662344b67843450eb7c14c3f71a61b5207"
+      url: "https://github.com/woho4u/analytics.git"
     source: git
     version: "1.0.0"
   openstrap_protocol:

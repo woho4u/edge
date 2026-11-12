@@ -271,7 +271,7 @@ dependencies:
       ref: b4fde6ab5589e53154b808f8b2bbb4d01d9c15b5
   openstrap_analytics:
     git:
-      url: https://github.com/OpenStrap/analytics.git
+      url: https://github.com/woho4u/analytics.git
       # analytics main @ #34 merge. Two hops in one: #32 (the HR-onset bypass
       # for low-limb-swing cardio) had already merged and this pin was still
       # sitting on its PR-branch head, and #34 lands the sleep-stager rewrite.
@@ -521,7 +521,9 @@ dependencies:
       # analytics main @ 3a7ca34: adds #101 (HRV/readiness/wellness fixes), #100
       # (sleep staging and naps), #97 (stride-periodicity step counter) and #98
       # (a mid-session rest stays inside one workout).
-      ref: 3a7ca34d30233ff11e6c2877083f319a907ccb31
+      # FORK woho4u/analytics @ whoopsleep-v8: 3a7ca34 plus the cracked-whoop
+      # five-head sleep stager (segmentSleep(whoopSleep: true)).
+      ref: 899245662344b67843450eb7c14c3f71a61b5207
 
   # BLE — flutter_blue_plus is the maintained cross-platform GATT client.
   flutter_blue_plus: ^1.36.8

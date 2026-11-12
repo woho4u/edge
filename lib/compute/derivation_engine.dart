@@ -1852,7 +1852,11 @@ import 'vendor_sleep.dart';
 // more than the windowed live/phone sources, instead of only when they counted
 // nothing, so a short tracked walk no longer hides the day's chip total.
 // gen4 (no counter) is unchanged. Edge-only.
-const int kAlgoVersion = 120;
+// 120 → 121 (fork): sleep stages inside the detected/confirmed window come from
+// the cracked-whoop five-head model (segmentSleep(whoopSleep: true)), so every
+// stored night is re-staged. Window detection, naps and vendor-staged nights
+// are unchanged; a window with too few beat intervals keeps the rule stager.
+const int kAlgoVersion = 121;
 /// The sibling SHAs this version was derived against, asserted against
 /// pubspec.yaml in test/db_serve_version_and_reads_test.dart.
 ///
@@ -2039,7 +2043,8 @@ const int kAlgoVersion = 120;
 // merge + spread calibration + capped re-centring + robust lnRMSSD
 // centre), for v112.
 // REPIN @ 3a7ca34: analytics main, #101 + #100 + #97 + #98, for v119.
-const String kAnalyticsPin = '3a7ca34d30233ff11e6c2877083f319a907ccb31';
+// REPIN @ woho4u/analytics whoopsleep-v8 (3a7ca34 + the five-head stager), v121.
+const String kAnalyticsPin = '899245662344b67843450eb7c14c3f71a61b5207';
 // Repinned to analytics main's tip, which carries BOTH PR #72 (hrv_freq
 // Welch gap guard) and PR #73 (overreachingConjunction rhr quantum guard) —
 // the two independent kAlgoVersion bumps above (93 and 94). Verified both

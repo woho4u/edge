@@ -1342,6 +1342,7 @@ List<PhysioDay> calendarDays(
           rrMs: rrMsSeg,
           rrTsMs: rrTsSeg,
           forcedWindow: (onsetSec: ov.onsetSec, offsetSec: ov.offsetSec),
+          whoopSleep: true,
         );
         src = ov.source; // 'manual' | 'confirmed'
       } else {
@@ -1369,6 +1370,7 @@ List<PhysioDay> calendarDays(
             // the auto night at the band's own last SLEEP (AUTO path only —
             // never the override or the HR-led fallback below).
             bandSleepState: sub.bandSleepStateSlice(loS, hiS),
+            whoopSleep: true,
           );
         } else {
           // Not an error and not "no sleep" — just no accel evidence. Fall
@@ -1399,6 +1401,7 @@ List<PhysioDay> calendarDays(
               rrTsMs: rrTsSeg,
               forcedWindow:
                   (onsetSec: cand.onsetSec, offsetSec: cand.offsetSec),
+              whoopSleep: true,
             );
             if (s2.present) {
               s = s2;
