@@ -20,6 +20,7 @@ import 'package:openstrap_protocol/openstrap_protocol.dart' as proto;
 
 import '../data/day_label.dart';
 import 'vendor_sleep.dart';
+import 'whoopsleep_model_store.dart' show armWhoopSleepModel;
 
 /// Minimum fraction of a nocturnal search window that must carry a REAL
 /// gravity vector before accel-led (van Hees) sleep detection is trusted.
@@ -1246,6 +1247,8 @@ List<PhysioDay> calendarDays(
 }) {
   final tzOffset = tzOffsetAt ?? tzOffsetSecondsAt;
   if (sub.isEmpty) return const [];
+  // Stage with a downloaded sleep model if one is installed (per isolate).
+  armWhoopSleepModel();
   final accel = sub.accelSamples();
   final hr = sub.hr1hz();
   final dataStart = sub.tsSec.first;

@@ -26,6 +26,7 @@ import '../../data/auto_backup.dart';
 import '../../data/csv_export.dart';
 import '../../data/day_label.dart' show dayLabelOf;
 import '../../compute/derivation_engine.dart' show CompactStep;
+import '../../compute/whoopsleep_model_store.dart' as sleep_model;
 import '../../data/db.dart';
 import '../../data/export_retention.dart';
 import '../../data/substrate_archive.dart' show SubstrateArchivePolicy;
@@ -331,6 +332,22 @@ class _DataScreenState extends State<DataScreen> {
     }
   }
 
+  Future<_Note> _checkSleepModel(AppState app) async {
+    final r = await app.runSleepModelUpdateIfDue(force: true);
+    final name = sleep_model.whoopSleepModelLabel();
+    return switch (r) {
+      sleep_model.WhoopSleepUpdate.installed =>
+        ('Installed $name and re-analyzed your days.', false),
+      sleep_model.WhoopSleepUpdate.failed => (
+          "Couldn't check for a new sleep model. Still using $name.",
+          true
+        ),
+      sleep_model.WhoopSleepUpdate.unsupported =>
+        ('Downloadable sleep models need iOS. Using $name.', false),
+      _ => ('$name is the latest sleep model.', false),
+    };
+  }
+
   Future<_Note> _reanalyze(AppState app) async {
     final l = AppLocalizations.of(context);
     final ml = MaterialLocalizations.of(context);
@@ -610,6 +627,28 @@ class _DataScreenState extends State<DataScreen> {
                       onTap: _busy || app.reanalyzing
                           ? null
                           : () => _run(() => _reanalyze(app))),
+                  SetRow(LucideIcons.moon, C.blue, 'Sleep model',
+                      sub: 'Stages your nights. A newer model is checked for '
+                          'daily and installed automatically; your days are '
+                          'then re-analyzed. Tap to check now',
+                      value: sleep_model.whoopSleepModelLabel(),
+                      onTap: _busy || app.reanalyzing
+                          ? null
+                          : () => _run(() => _checkSleepModel(app))),
+                  if (sleep_model.installedWhoopSleepModel() != null)
+                    SetRow(LucideIcons.undo2, C.blue,
+                        'Use the built-in sleep model',
+                        sub: 'Removes the downloaded model and re-analyzes '
+                            'your days with the one this app shipped with',
+                        onTap: _busy || app.reanalyzing
+                            ? null
+                            : () => _run(() async {
+                                  await app.useBuiltInSleepModel();
+                                  return (
+                                    'Using ${sleep_model.whoopSleepModelLabel()}.',
+                                    false
+                                  );
+                                })),
                 ]),
                 if (_busy) ...[
                   const SizedBox(height: S.x6),

@@ -72,6 +72,7 @@ class _OpenStrapAppState extends State<OpenStrapApp> with WidgetsBindingObserver
 
       final app = context.read<AppState>();
       if (app.isPaired) app.openSession();
+      unawaited(app.runSleepModelUpdateIfDue());
     });
   }
 
@@ -118,6 +119,9 @@ class _OpenStrapAppState extends State<OpenStrapApp> with WidgetsBindingObserver
       // delivering whenever the OS feels like it is worse than one that is
       // honest about when it fires.
       unawaited(app.runBackupIfDue());
+      // A newer downloadable sleep model, if one was published (at most
+      // daily; see compute/whoopsleep_model_store.dart).
+      unawaited(app.runSleepModelUpdateIfDue());
       // Re-publish the widget snapshot. `has_data` is decided WHEN THE
       // SNAPSHOT IS WRITTEN (WidgetService.push evaluates isStale there), and
       // the widget process never runs Dart — so a snapshot written while fresh

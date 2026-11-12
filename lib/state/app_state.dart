@@ -64,6 +64,7 @@ import '../compute/inputs/canonical.dart'
         substrateDays;
 import '../compute/manual_session.dart' show supersededSuggestionIds;
 import '../compute/step_calibration_fit.dart';
+import '../compute/whoopsleep_model_store.dart' as sleep_model;
 import '../compute/hr_max.dart';
 import '../compute/inputs/measurement_inputs.dart'
     show
@@ -1324,6 +1325,37 @@ class AppState extends ChangeNotifier {
     );
     _recordBackupOutcome(outcome);
     if (outcome.error != null) _log('Backup failed: ${outcome.error}');
+  }
+
+  /// Fetch a newer downloadable sleep model when one is published (at most
+  /// daily unless [force]) and re-analyze stored days with it. Fired with
+  /// `unawaited` on launch and on every foreground; never throws.
+  Future<sleep_model.WhoopSleepUpdate> runSleepModelUpdateIfDue(
+      {bool force = false}) async {
+    try {
+      final r = await sleep_model.checkForWhoopSleepModelUpdate(force: force);
+      if (r == sleep_model.WhoopSleepUpdate.installed) {
+        _log('[sleep-model] new model installed; re-analyzing stored days');
+        notifyListeners();
+        await reanalyzeAll();
+      }
+      return r;
+    } catch (e) {
+      _log('[sleep-model] update failed: $e');
+      return sleep_model.WhoopSleepUpdate.failed;
+    }
+  }
+
+  /// Go back to the built-in sleep model and re-analyze stored days.
+  Future<void> useBuiltInSleepModel() async {
+    try {
+      if (sleep_model.removeInstalledWhoopSleepModel()) {
+        notifyListeners();
+        await reanalyzeAll();
+      }
+    } catch (e) {
+      _log('[sleep-model] reset failed: $e');
+    }
   }
 
   /// Clear the local profile + unpair the band (the former "sign out", now purely

@@ -523,7 +523,7 @@ dependencies:
       # (a mid-session rest stays inside one workout).
       # FORK woho4u/analytics @ whoopsleep-v8: 3a7ca34 plus the cracked-whoop
       # five-head sleep stager (segmentSleep(whoopSleep: true)).
-      ref: 899245662344b67843450eb7c14c3f71a61b5207
+      ref: 3c8350a44c465e373e5f4866ed0b9dc54bbc8ffc
 
   # BLE — flutter_blue_plus is the maintained cross-platform GATT client.
   flutter_blue_plus: ^1.36.8
