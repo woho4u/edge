@@ -2133,8 +2133,22 @@ const int _headlineFreezeMarginSec = 60 * 60;
 /// it. A strap that went quiet right after waking (flat battery, taken off and
 /// not recording) never moves the edge again, and the night we hold is then
 /// the whole night as far as any sync will ever know.
-// ponytail: wall-clock give-up; a persisted "drain complete" marker would be exact.
 const int kOvernightGiveUpSec = 12 * 60 * 60;
+
+/// How much post-wake time a COMPLETED history drain still waits before it
+/// settles a night. A completed drain is exact evidence that the band has no
+/// unread history (the cursor reached the live edge and `HISTORY_COMPLETE` was
+/// acknowledged), so the one-hour edge margin is unnecessary. The short margin
+/// is not a data guard: it stops a drain that completes *while the user is
+/// still asleep* (the stager then closes the window at the edge, so wake and
+/// edge are the same second) from being mistaken for a finished night.
+const int kDrainSettleMarginSec = 5 * 60;
+
+/// How far a day row's stored `data_edge_sec` may lag the completed drain's
+/// edge and still count as derived against it. The derive reads the frontier
+/// just before the drain's final ACK writes it, so a few seconds is normal;
+/// a row older than this was derived mid-drain and may still be partial.
+const int kDrainEdgeSlopSec = 60;
 
 /// Whether a night whose sleep ends at [sleepOffsetSec] is SETTLED: the drained
 /// data edge has moved [_headlineFreezeMarginSec] past the wake, so the window
@@ -2143,6 +2157,15 @@ const int kOvernightGiveUpSec = 12 * 60 * 60;
 /// it, so a partial night and its readiness showed as this morning's). Home and
 /// the readiness freeze both read this, on the same band-only edge
 /// ([LocalDb.lastDecodedRecTs]).
+///
+/// [drainComplete] says the band's history task reached `HISTORY_COMPLETE` and
+/// the app banked every record it offered (see
+/// [LocalDb.historyDrainCoversNight]). That is stronger than the edge proxy:
+/// there is no unread tail left to truncate the night. It still waits
+/// [kDrainSettleMarginSec] after the wake, so a drain that happened mid-night
+/// (when the stager's wake is the drain edge itself) does not settle a partial
+/// night. This is what lets a morning sync show the night immediately instead
+/// of waiting the full hour.
 ///
 /// [nowSec] enables the wall-clock give-up. Only Home passes it: a drain that
 /// stalled mid-night looks exactly like a strap that went quiet at wake, and
@@ -2159,6 +2182,7 @@ bool overnightSettled({
   required int? sleepOffsetSec,
   required int dataEdgeSec,
   int? nowSec,
+  bool drainComplete = false,
 }) {
   if (sleepOffsetSec == null) {
     if (nowSec == null) return false;
@@ -2167,8 +2191,24 @@ bool overnightSettled({
             dataEdgeSec >= nowSec - _headlineFreezeMarginSec) ||
         nowSec >= dataEdgeSec + kOvernightGiveUpSec;
   }
+  if (drainComplete && dataEdgeSec >= sleepOffsetSec) {
+    final anchorSec = nowSec ?? dataEdgeSec;
+    if (anchorSec >= sleepOffsetSec + kDrainSettleMarginSec) return true;
+  }
   return dataEdgeSec >= sleepOffsetSec + _headlineFreezeMarginSec ||
       (nowSec != null && nowSec >= sleepOffsetSec + kOvernightGiveUpSec);
+}
+
+/// The wake of a day bundle's main sleep window, or null when it has none.
+/// One reader for the `sleep.window.value.offset_ms` envelope, so Home,
+/// freshness and the recovery push cannot disagree about which night a row
+/// describes. A no-sleep window's `value` is the string '—', not a Map.
+int? sleepWakeSecOf(Map<String, dynamic>? bundle) {
+  final sleep = bundle?['sleep'];
+  final window = sleep is Map ? sleep['window'] : null;
+  final value = window is Map ? window['value'] : null;
+  final offsetMs = value is Map ? value['offset_ms'] : null;
+  return offsetMs is num ? offsetMs ~/ 1000 : null;
 }
 
 /// How long the band's data edge must run past a detected wake before that
@@ -2209,9 +2249,13 @@ RecoveryState? recoveryStateOf({
   required int? wakeSec,
   required int dataEdgeSec,
   int? nowSec,
+  bool drainComplete = false,
 }) {
   if (overnightSettled(
-      sleepOffsetSec: wakeSec, dataEdgeSec: dataEdgeSec, nowSec: nowSec)) {
+      sleepOffsetSec: wakeSec,
+      dataEdgeSec: dataEdgeSec,
+      nowSec: nowSec,
+      drainComplete: drainComplete)) {
     return RecoveryState.finalReady;
   }
   if (wakeSec == null) return null;
@@ -6852,9 +6896,16 @@ class DerivationEngine {
     if (day.date != todayLabel()) return;
     final hasSleep = day.sleepOffsetSec > day.sleepOnsetSec;
     if (!hasSleep) return;
+    // A completed morning drain settles the night without waiting the full
+    // hour; the same evidence Home uses, so the pin and the ring agree.
+    final drainComplete = await LocalDb.historyDrainCoversNight(
+      wakeSec: day.sleepOffsetSec,
+      dataEdgeSec: dataNowSec,
+    );
     final overnightComplete = overnightSettled(
       sleepOffsetSec: day.sleepOffsetSec,
       dataEdgeSec: dataNowSec,
+      drainComplete: drainComplete,
     );
     final current = await LocalDb.frozenHeadline();
     final next = nextFrozenHeadline(

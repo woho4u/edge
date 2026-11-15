@@ -191,17 +191,14 @@ bool recoveryNightSettled({
   required Map<String, dynamic>? payload,
   required int dataEdgeSec,
   required int nowSec,
+  bool drainComplete = false,
 }) {
   if (dayId != todayLabel()) return true;
-  // A no-sleep window's `value` is the string '—', not a Map.
-  final sleep = payload?['sleep'];
-  final window = sleep is Map ? sleep['window'] : null;
-  final value = window is Map ? window['value'] : null;
-  final offsetMs = value is Map ? value['offset_ms'] : null;
   return overnightSettled(
-    sleepOffsetSec: offsetMs is num ? offsetMs ~/ 1000 : null,
+    sleepOffsetSec: sleepWakeSecOf(payload),
     dataEdgeSec: dataEdgeSec,
     nowSec: nowSec,
+    drainComplete: drainComplete,
   );
 }
 
@@ -2313,11 +2310,17 @@ class AppState extends ChangeNotifier {
       );
       // Home holds a partial night back; announcing it would also spend the
       // day's guard before the real recovery lands.
+      final dataEdgeSec = await LocalDb.lastDecodedRecTs() ?? 0;
+      final drainComplete = await LocalDb.historyDrainCoversNight(
+        wakeSec: sleepWakeSecOf(payload),
+        dataEdgeSec: dataEdgeSec,
+      );
       if (!recoveryNightSettled(
         dayId: dayId,
         payload: payload,
-        dataEdgeSec: await LocalDb.lastDecodedRecTs() ?? 0,
+        dataEdgeSec: dataEdgeSec,
         nowSec: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        drainComplete: drainComplete,
       )) {
         return;
       }

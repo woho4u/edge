@@ -33,11 +33,14 @@ import '../coach/coach_db.dart' show CoachDb;
 import '../compute/derivation_engine.dart'
     show
         kAlgoVersion,
+        kDrainEdgeSlopSec,
+        kDrainSettleMarginSec,
         kOvernightGiveUpSec,
         kPinWakeToleranceSec,
         pinnableNight,
         overnightSettled,
         recoveryStateOf,
+        sleepWakeSecOf,
         RecoveryStateWire;
 import '../compute/sleep_profile_policy.dart' show SleepProfilePolicy;
 import '../ble/adapters/_registry.dart' show kAdapterSignals;
@@ -4602,6 +4605,32 @@ class LocalDb {
   /// Only ever raised; the derive engine refuses to re-derive a day whose
   /// window reaches below it.
   static const String kDecodedPrunedBeforeCursor = 'decoded_pruned_before';
+
+  /// Cursor holding the band's newest record timestamp at the last COMPLETED
+  /// history drain (the `HISTORY_COMPLETE` checkpoint, after every offered
+  /// record was banked). It is the exact "the strap has no unread history"
+  /// evidence [overnightSettled] can use instead of waiting an hour for the
+  /// data edge to pass the wake. Only advanced, never regressed.
+  static const String kHistoryDrainEdgeCursor = 'history_drain_edge_ts';
+
+  /// Whether a completed band drain reached [wakeSec] and the day row was
+  /// derived against at least that drained edge. The small slop covers a row
+  /// whose derive read the frontier a few seconds before the final ACK wrote
+  /// it; it is deliberately much shorter than the hour margin, because the
+  /// point is to settle a morning sync immediately.
+  ///
+  /// A marker whose edge is before the wake is from an earlier night and says
+  /// nothing about this one. A row whose edge is older than the marker was
+  /// derived mid-drain, so it can still be a partial night and must not settle.
+  static Future<bool> historyDrainCoversNight({
+    required int? wakeSec,
+    required int dataEdgeSec,
+  }) async {
+    if (wakeSec == null || wakeSec <= 0 || dataEdgeSec <= 0) return false;
+    final drainEdgeSec = await getCursorInt(kHistoryDrainEdgeCursor);
+    if (drainEdgeSec == null || drainEdgeSec < wakeSec) return false;
+    return dataEdgeSec >= drainEdgeSec - kDrainEdgeSlopSec;
+  }
 
   /// The pinned morning readiness headline (day + value), or null if unset /
   /// unparseable. The `day` must be compared to today's label by the caller — a
@@ -13733,6 +13762,9 @@ class LocalDb {
     // how far the band's night has drained. Only for legacy rows without a
     // stored `data_edge_sec`.
     final bandEdgeSec = await lastDecodedRecTs() ?? 0;
+    // A completed drain is exact "no unread tail" evidence; a morning sync
+    // can settle the night without waiting for the edge to pass wake + 1 h.
+    final drainEdgeSec = await getCursorInt(kHistoryDrainEdgeCursor);
     String? latestOvernightDay;
     int? latestOvernightComputedAt;
     String? latestRecoveryDay;
@@ -13755,12 +13787,7 @@ class LocalDb {
       // serving it showed a partial night and its readiness as this morning's.
       // A row with no window is held too: mid-drain the edge can still sit
       // before sleep onset, and that read as a settled 'no sleep' night.
-      // A no-sleep window's `value` is the string '—', not a Map.
-      final sleepMap = decoded['sleep'];
-      final windowMap = sleepMap is Map ? sleepMap['window'] : null;
-      final windowVal = windowMap is Map ? windowMap['value'] : null;
-      final offsetMs = windowVal is Map ? windowVal['offset_ms'] : null;
-      final wakeSec = offsetMs is num ? offsetMs ~/ 1000 : null;
+      final wakeSec = sleepWakeSecOf(decoded);
       // A night is judged on the edge its row was derived against
       // (`data_edge_sec`), so wake and edge share one substrate: a later band
       // sync must not settle a row still holding the partial night, and an
@@ -13768,11 +13795,19 @@ class LocalDb {
       // without the stamp fall back to the band's edge.
       final edgeSec =
           (decoded['data_edge_sec'] as num?)?.toInt() ?? bandEdgeSec;
+      // The drain marker must be from THIS night (at/after its wake) and the
+      // row must have been derived against at least that drained edge. A row
+      // from mid-drain is still partial and stays on the hour guard.
+      final drainComplete = drainEdgeSec != null &&
+          wakeSec != null &&
+          drainEdgeSec >= wakeSec &&
+          edgeSec >= drainEdgeSec - kDrainEdgeSlopSec;
       if (dayId == today) {
         recoveryState = recoveryStateOf(
           wakeSec: wakeSec,
           dataEdgeSec: edgeSec,
           nowSec: nowSec,
+          drainComplete: drainComplete,
         )?.wire;
       }
       final flags = decoded['flags'];
@@ -13787,10 +13822,15 @@ class LocalDb {
             sleepOffsetSec: wakeSec,
             dataEdgeSec: edgeSec,
             nowSec: nowSec,
+            drainComplete: drainComplete,
           )) {
         // When the give-up lands; getToday re-checks then, since a quiet
-        // strap triggers no derive to do it.
-        overnightRecheckAt = (wakeSec ?? edgeSec) + kOvernightGiveUpSec;
+        // strap triggers no derive to do it. A completed drain that is still
+        // inside the short post-wake margin gets a recheck at that margin
+        // instead, so the night can appear a few minutes after waking.
+        overnightRecheckAt = drainComplete
+            ? wakeSec + kDrainSettleMarginSec
+            : (wakeSec ?? edgeSec) + kOvernightGiveUpSec;
         continue;
       }
       final scalars = ((decoded['scalars'] as Map?) ?? const {})

@@ -86,6 +86,81 @@ void main() {
     expect(await overnightDay(), todayLabel());
   });
 
+  test('a completed drain settles the morning night without the hour',
+      () async {
+    // The reported case: wake 20 min ago, a full drain finished 10 min after
+    // wake — still 40 min short of the old edge margin.
+    final wake = nowSec - 20 * 60;
+    final edge = wake + 10 * 60;
+    await seed(wakeSec: wake, edgeSec: edge);
+    await LocalDb.setCursor(LocalDb.kHistoryDrainEdgeCursor, '$edge');
+    expect(await overnightDay(), todayLabel());
+  });
+
+  test('a drain inside the short post-wake margin still waits', () async {
+    final wake = nowSec - 60;
+    final edge = nowSec;
+    await seed(wakeSec: wake, edgeSec: edge);
+    await LocalDb.setCursor(LocalDb.kHistoryDrainEdgeCursor, '$edge');
+    expect(await overnightDay(), isNot(todayLabel()));
+  });
+
+  test('a drain from before the wake does not settle this night', () async {
+    final wake = nowSec - 20 * 60;
+    await seed(wakeSec: wake, edgeSec: wake + 10 * 60);
+    await LocalDb.setCursor(LocalDb.kHistoryDrainEdgeCursor, '${wake - 60}');
+    expect(await overnightDay(), isNot(todayLabel()));
+  });
+
+  test('a row derived before the drain finished does not settle', () async {
+    // The row's edge is still the partial night's; the completed drain has
+    // since moved past it. Only a re-derive against the drained edge may
+    // settle, or the old partial window would be served as this morning's.
+    final wake = nowSec - 20 * 60;
+    final rowEdge = wake + 60;
+    await seed(wakeSec: wake, edgeSec: rowEdge);
+    await LocalDb.setCursor(
+      LocalDb.kHistoryDrainEdgeCursor,
+      '${wake + 15 * 60}',
+    );
+    expect(await overnightDay(), isNot(todayLabel()));
+  });
+
+  test('a row two minutes behind the drain edge does not settle', () async {
+    // The slop is for a derive reading the frontier seconds before the final
+    // ACK, not for a row that genuinely predates the drain tail.
+    final wake = nowSec - 20 * 60;
+    final rowEdge = wake + 10 * 60;
+    await seed(wakeSec: wake, edgeSec: rowEdge);
+    await LocalDb.setCursor(
+      LocalDb.kHistoryDrainEdgeCursor,
+      '${rowEdge + 2 * 60}',
+    );
+    expect(await overnightDay(), isNot(todayLabel()));
+  });
+
+  test('a completed drain waits five minutes after the wake', () {
+    final wake = nowSec - 60;
+    expect(
+      overnightSettled(
+        sleepOffsetSec: wake,
+        dataEdgeSec: wake,
+        nowSec: nowSec,
+        drainComplete: true,
+      ),
+      isFalse,
+    );
+    expect(
+      overnightSettled(
+        sleepOffsetSec: wake,
+        dataEdgeSec: wake,
+        nowSec: wake + kDrainSettleMarginSec,
+        drainComplete: true,
+      ),
+      isTrue,
+    );
+  });
+
   test('a strap that went quiet at wake still settles by the give-up', () {
     final wake = nowSec - 13 * 3600;
     expect(

@@ -429,12 +429,17 @@ class SyncController {
             'is still running; waiting on it again.');
         continue;
       }
-      if (report.batches == 0) {
-        _log('Backfill stop — no batch ACKs; trim did not advance.');
+      if (report.complete && !backlogRemains) {
+        // The strap has handed over every record it holds. Remember the edge
+        // durably: it is exact evidence that a morning night has no unread
+        // tail, so Home can settle it without waiting for the edge to pass
+        // wake + 1 h (see overnightSettled's drainComplete).
+        await _markHistoryDrained(frontierAfter);
+        _log('Backfill stop — history complete acknowledged by strap.');
         break;
       }
-      if (report.complete && !backlogRemains) {
-        _log('Backfill stop — history complete acknowledged by strap.');
+      if (report.batches == 0) {
+        _log('Backfill stop — no batch ACKs; trim did not advance.');
         break;
       }
       if (!frontierAdvanced && !backlogRemains) {
@@ -479,6 +484,24 @@ class SyncController {
       );
     }
     return total;
+  }
+
+  /// Persist the band edge of a COMPLETED history drain.
+  ///
+  /// `HISTORY_COMPLETE` means the band has no unread records left, which is
+  /// exact evidence that a night's tail is fully banked. Home uses this to
+  /// settle a morning night immediately instead of waiting for the data edge
+  /// to pass wake + one hour. Never regress the marker: a band with a reset
+  /// clock must not make a later, better drain look older than an earlier one.
+  Future<void> _markHistoryDrained(int? edgeSec) async {
+    if (edgeSec == null || edgeSec <= 0) return;
+    final previous = await LocalDb.getCursorInt(
+      LocalDb.kHistoryDrainEdgeCursor,
+    );
+    if (previous != null && previous >= edgeSec) return;
+    await LocalDb.setCursor(LocalDb.kHistoryDrainEdgeCursor, '$edgeSec');
+    _log('History drain complete at band ts=$edgeSec — the overnight may '
+        'settle without the hour guard.');
   }
 
   /// Whether a link that still reports connected may be reused after the

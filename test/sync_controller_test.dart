@@ -535,6 +535,19 @@ void main() {
       expect(r.trace.last, 'sched.stored');
     }));
 
+    test('a completed burst records the drain edge for the morning gate',
+        _rigCase((r, timers) async {
+      r.engine.link = true;
+      r.engine.newestTs = 2000;
+      r.engine.onRunSync = () async {
+        await LocalDb.setCursor('rec_ts_hw', '2000');
+      };
+      await r.c.syncForShortcut(
+          ShortcutSyncTask('t', const Duration(minutes: 1)));
+      expect(await LocalDb.getCursorInt(LocalDb.kHistoryDrainEdgeCursor), 2000,
+          reason: 'HISTORY_COMPLETE is the exact end-of-night evidence');
+    }));
+
     test('a wait that gives up on a still-running task waits on it again',
         _rigCase((r, timers) async {
       r.engine.link = true;

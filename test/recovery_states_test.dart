@@ -48,6 +48,30 @@ void main() {
       expect(recoveryStateOf(wakeSec: wake, dataEdgeSec: wake + 3600),
           RecoveryState.finalReady);
     });
+
+    test('a completed drain is final after the short margin', () {
+      expect(
+        recoveryStateOf(
+          wakeSec: wake,
+          dataEdgeSec: wake + 10 * 60,
+          nowSec: wake + 20 * 60,
+          drainComplete: true,
+        ),
+        RecoveryState.finalReady,
+      );
+    });
+
+    test('a same-second drain is still in progress', () {
+      expect(
+        recoveryStateOf(
+          wakeSec: wake,
+          dataEdgeSec: wake,
+          nowSec: wake + 60,
+          drainComplete: true,
+        ),
+        RecoveryState.nightInProgress,
+      );
+    });
   });
 
   group('pin guards (reported case replay)', () {
