@@ -40,7 +40,14 @@ const int kKeepAliveIntervalSeconds =
 // escalation to hang the "this keeps happening" report on already exists
 // ([NoDurableProgressEscalation]); the discard path just does not feed it.
 // Until both exist, do not point a slower source at this drain.
-const int kBackfillIdleTimeoutSeconds = 60; // strap went silent mid-offload
+///
+/// 20 s, down from 60 (2026-11-16). Field log over two days on a gen4 strap:
+/// 18 watchdog expiries, 17 of them seconds after a live-stream or band-prompt
+/// write landed mid-transfer — the strap simply stops the offload, and every
+/// one of them resumed on the retry. A healthy drain's longest gap between
+/// bursts was ~10 s (ledger, 665 bursts), and our own commit + ACK peaked at
+/// ~2 s, so 20 s still leaves 2x headroom while a stall costs a third as much.
+const int kBackfillIdleTimeoutSeconds = 20; // strap went silent mid-offload
 
 /// Seconds from a SEND_HISTORICAL_DATA write that SUCCEEDED to the band's first
 /// answer for that task (HISTORY_START or HISTORY_COMPLETE; on gen4 any history
@@ -80,8 +87,8 @@ const int kForeignHistoryQuietSeconds = 10;
 
 /// Seconds another client's transfer may go without PROGRESS (a HISTORY_START
 /// or a history record) before it is considered abandoned, however often its
-/// HISTORY_END is re-offered. Same bound as our own idle watchdog
-/// ([kBackfillIdleTimeoutSeconds]): a band re-offering an END nobody answers
+/// HISTORY_END is re-offered. Kept at the idle watchdog's old 60 s (ours is
+/// now [kBackfillIdleTimeoutSeconds]); another client's pacing is unknown: a band re-offering an END nobody answers
 /// (the other client was killed mid-transfer) would otherwise keep the
 /// window open — every claim deferred, maintenance paused — for the life of
 /// the link.

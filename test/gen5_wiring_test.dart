@@ -1658,18 +1658,20 @@ void _burstOrdering() {
         b.rx(_gen5V18Inner(ts: _wallNow() - 3600, counter: 4300));
         async.flushMicrotasks();
 
-        // 55 s of chatter-only traffic. Each console line is a count member
-        // riding the offload queue, and each used to re-arm the idle
-        // watchdog — so a strap that stalled mid-burst but kept logging
-        // never hit the timeout.
-        for (var i = 0; i < 5; i++) {
-          async.elapse(const Duration(seconds: 11));
+        // Chatter-only traffic for most of the idle window. Each console
+        // line is a count member riding the offload queue, and each used to
+        // re-arm the idle watchdog — so a strap that stalled mid-burst but
+        // kept logging never hit the timeout.
+        const chatters = kBackfillIdleTimeoutSeconds ~/ 4 - 1;
+        for (var i = 0; i < chatters; i++) {
+          async.elapse(const Duration(seconds: 4));
           b.rx(_consoleInner(10 + i), role: 'events');
           async.flushMicrotasks();
         }
         expect(b.opcodes, isNot(contains(Cmd.abortHistoricalTransmits)));
 
-        async.elapse(const Duration(seconds: 10));
+        async.elapse(Duration(
+            seconds: kBackfillIdleTimeoutSeconds - chatters * 4 + 1));
         async.flushMicrotasks();
         expect(b.opcodes, contains(Cmd.abortHistoricalTransmits),
             reason: 'the fuse measures real drain progress, not chatter');

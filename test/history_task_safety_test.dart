@@ -25,6 +25,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openstrap_edge/ble/ble_engine.dart';
 import 'package:openstrap_edge/data/models.dart';
+import 'package:openstrap_edge/sync/sync_policy.dart';
 import 'package:openstrap_protocol/openstrap_protocol.dart';
 
 int _wallNow() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -828,7 +829,7 @@ void main() {
         r.rx(_historyComplete());
 
         // The idle watchdog ends the task while the commit is parked.
-        async.elapse(const Duration(seconds: 61));
+        async.elapse(const Duration(seconds: kBackfillIdleTimeoutSeconds + 1));
         expect(r.aborts, hasLength(1));
 
         // The parked commit resolves by FAILING: DrainController restores
@@ -893,7 +894,7 @@ void main() {
 
         // The watchdog ends the task; its abort completes immediately, but
         // the marker handler is STILL parked inside the held commit.
-        async.elapse(const Duration(seconds: 61));
+        async.elapse(const Duration(seconds: kBackfillIdleTimeoutSeconds + 1));
         expect(r.aborts, hasLength(1));
 
         // A claim during that window must wait for full quiescence — if it
@@ -1283,9 +1284,9 @@ void main() {
         r.engine.debugStartHistoricalRefresh();
         async.elapse(const Duration(seconds: 3));
         r.rx(_historyStart());
-        async.elapse(const Duration(seconds: 30));
+        async.elapse(const Duration(seconds: kBackfillIdleTimeoutSeconds - 5));
         expect(r.aborts, isEmpty,
-            reason: 'only the 60 s idle watchdog may end it from here');
+            reason: 'only the idle watchdog may end it from here');
         expect(
             r.engine.offloadSnapshot['first_start_watchdog_armed'], isFalse);
         expect(r.engine.offloadActive, isTrue);
@@ -1296,7 +1297,7 @@ void main() {
       fakeAsync((async) {
         final r = _Rig()..startOnDrainRequest = true;
         r.engine.debugStartHistoricalRefresh();
-        async.elapse(const Duration(seconds: 30));
+        async.elapse(const Duration(seconds: kBackfillIdleTimeoutSeconds - 5));
         expect(r.drainRequests, hasLength(1));
         expect(r.aborts, isEmpty);
         expect(
@@ -1758,7 +1759,7 @@ void main() {
         async.elapse(const Duration(seconds: 1));
         expect(r.drainRequests, hasLength(1));
         r.rx(_historyStart()); // the band answers the auto-continue
-        async.elapse(const Duration(seconds: 30));
+        async.elapse(const Duration(seconds: kBackfillIdleTimeoutSeconds - 5));
         expect(r.aborts, isEmpty);
         expect(
             r.engine.offloadSnapshot['first_start_watchdog_armed'], isFalse);
