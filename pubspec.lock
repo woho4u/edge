@@ -937,8 +937,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "217d3ebacfdb04b2b006013eea83b42da5fc86c9"
-      resolved-ref: "217d3ebacfdb04b2b006013eea83b42da5fc86c9"
+      ref: "a0a799e5cb923f98dd68fc13cdd8fc091c64f79c"
+      resolved-ref: "a0a799e5cb923f98dd68fc13cdd8fc091c64f79c"
       url: "https://github.com/woho4u/analytics.git"
     source: git
     version: "1.0.0"

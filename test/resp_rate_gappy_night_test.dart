@@ -68,12 +68,14 @@ void main() {
     expect(rsa['note'] as String, isNot(contains('beat rate')));
   });
 
-  test('a genuinely low heart rate is still withheld, and the note says so',
+  // cracked-whoop round 12 (v122): the breathing search runs up to 0.95 x the
+  // window's own beat Nyquist instead of refusing every night under 48 bpm.
+  // At 45 bpm that ceiling is ~21 br/min, so a 15 br/min sleeper is readable.
+  test('a low heart rate still publishes a breathing rate below its Nyquist',
       () {
     final b = _night(hrBpm: 45);
     final rsa = _m(_m(b, 'respiration'), 'rsa');
-    expect(_m(b, 'scalars')['resp_rate'], isNull);
-    expect(rsa['note'] as String, contains('alias'));
-    expect(rsa['note'] as String, contains('45'));
+    expect(_m(b, 'scalars')['resp_rate'], isNotNull, reason: '${rsa['note']}');
+    expect(_m(b, 'scalars')['resp_rate'] as num, closeTo(15, 1.0));
   });
 }

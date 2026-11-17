@@ -522,9 +522,9 @@ dependencies:
       # (sleep staging and naps), #97 (stride-periodicity step counter) and #98
       # (a mid-session rest stays inside one workout).
       # FORK woho4u/analytics @ whoopsleep-v8: 3a7ca34 plus the cracked-whoop
-      # five-head sleep stager (segmentSleep(whoopSleep: true)); 217d3eb adds
+      # five-head sleep stager (segmentSleep(whoopSleep: true)); a0a799e adds
       # the round-12 sleep HRV / breathing rate (rsa_preserving.dart), v122.
-      ref: 217d3ebacfdb04b2b006013eea83b42da5fc86c9
+      ref: a0a799e5cb923f98dd68fc13cdd8fc091c64f79c
 
   # BLE — flutter_blue_plus is the maintained cross-platform GATT client.
   flutter_blue_plus: ^1.36.8
