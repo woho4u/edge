@@ -2048,8 +2048,8 @@ const int kAlgoVersion = 122;
 // REPIN @ 3a7ca34: analytics main, #101 + #100 + #97 + #98, for v119.
 // REPIN @ woho4u/analytics whoopsleep-v8 (3a7ca34 + the five-head stager), v121;
 // then 3c8350a (downloadable model hook, same output, no version move).
-// REPIN @ a0a799e: + cracked-whoop round-12 sleep HRV / breathing rate, v122.
-const String kAnalyticsPin = 'a0a799e5cb923f98dd68fc13cdd8fc091c64f79c';
+// REPIN @ 02f05bd: + cracked-whoop round-12 sleep HRV / breathing rate, v122.
+const String kAnalyticsPin = '02f05bd4e4f79291998f48e837d3e03cf9ff25a9';
 // Repinned to analytics main's tip, which carries BOTH PR #72 (hrv_freq
 // Welch gap guard) and PR #73 (overreachingConjunction rhr quantum guard) —
 // the two independent kAlgoVersion bumps above (93 and 94). Verified both

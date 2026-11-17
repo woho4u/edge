@@ -725,7 +725,9 @@ Map<String, dynamic> deriveDayBundle(Map<String, dynamic> inputJson) {
   // rsaRespRate refused many nights and read ~2 br/min low.
   final resp = nn.length >= 30
       ? sleepRespRateLs(d.sleepRrMs, d.sleepRrTsMs,
-          startSec: d.sleepOnsetSec, endSec: d.sleepOffsetSec)
+          startSec: d.sleepOnsetSec,
+          endSec: d.sleepOffsetSec,
+          beatClasses: corrected.classes)
       : Metric<RespEstimate>.absent(
           tier: Tier.estimate,
           inputs_used: const ['rr_cleaned'],
