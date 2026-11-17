@@ -289,18 +289,28 @@ bool lowBattery(double pct, bool charging) =>
 /// "78%" with a battery glyph, next to the sync line — the one place that
 /// already used a battery icon as an unrelated recovery-ring metaphor, but
 /// this is the actual reading. Mirrors devices.dart's `SourceRow` battery
-/// chip (same icon swap, same 13px size) rather than inventing a new look.
+/// chip (same icon, same 13px size) rather than inventing a new look.
+///
+/// Charging is spelled out: at 13 px the icon swap between `battery` and
+/// `batteryCharging` was the only difference, in the same muted ink. The word
+/// and the widget's charging blue make the state readable at a glance.
 Widget? batteryLine(BuildContext c) {
   final battery = deviceBatteryOf(c);
   if (battery == null) return null;
   final (pct, charging) = battery;
   final p = P.of(c);
-  final color = lowBattery(pct, charging) ? p.on(C.red) : p.ink3;
+  final color = charging
+      ? p.on(C.blue)
+      : (lowBattery(pct, charging) ? p.on(C.red) : p.ink3);
   return Row(mainAxisSize: MainAxisSize.min, children: [
     Icon(charging ? LucideIcons.batteryCharging : LucideIcons.battery,
         size: 13, color: color),
     const SizedBox(width: 3),
-    Text('${pct.round()}%', style: F.cap.copyWith(color: color)),
+    Text(
+      batteryReadingLabel(pct,
+          charging: charging, l: AppLocalizations.of(c)),
+      style: F.cap.copyWith(color: color),
+    ),
   ]);
 }
 

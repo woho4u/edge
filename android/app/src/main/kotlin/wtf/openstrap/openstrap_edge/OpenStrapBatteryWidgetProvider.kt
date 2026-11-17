@@ -49,9 +49,10 @@ class OpenStrapBatteryWidgetProvider : HomeWidgetProvider() {
         // never render as current, so we cross the line early instead.
         val stale = at > 0L && (System.currentTimeMillis() / 1000 - at) > 86_400L - 21_600L
         // "charging" is a fact about the moment the app last wrote, so it goes
-        // stale with the level it came with — the ⚡ used to sit there for days
-        // after the band came off the puck. Mirrors BatteryEntry.chargingNow in
-        // OpenStrapBatteryWidget.swift; keep the two in step.
+        // stale with the level it came with — a charging label used to sit
+        // there for days after the band came off the puck. Mirrors
+        // BatteryEntry.chargingNow in OpenStrapBatteryWidget.swift; keep the
+        // two in step.
         val chargingNow = charging && !stale
 
         // Colour rules mirror BatteryEntry.color: blue while charging, coral when
@@ -74,7 +75,10 @@ class OpenStrapBatteryWidgetProvider : HomeWidgetProvider() {
         val caption = when {
             pct < 0 -> "Not connected yet"
             stale -> "$name · last known"
-            charging -> "⚡ $name"
+            // The word, not just a bolt glyph: a lightning emoji before the
+            // band's name read as decoration at widget size. iOS says
+            // "Charging" on its small family; this is the same statement.
+            chargingNow -> "Charging · $name"
             else -> name
         }
 

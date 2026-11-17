@@ -370,9 +370,12 @@ class ProfileHomeView extends StatelessWidget {
                           if (s != null)
                             l?.profileSourcesCount(s.sources) ??
                                 '${s.sources} source${s.sources == 1 ? '' : 's'}',
-                          if (battery != null)
+                          if (battery != null) ...[
                             l?.profileBandBattery(battery.$1.round()) ??
                                 'Band ${battery.$1.round()}%',
+                            if (battery.$2)
+                              l?.devicesCharging ?? 'Charging',
+                          ],
                         ].join(' · '),
                         onTap: onDevices);
                   }),

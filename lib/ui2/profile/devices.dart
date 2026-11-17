@@ -1732,10 +1732,14 @@ class SourceRow extends StatelessWidget {
                           ? LucideIcons.batteryCharging
                           : LucideIcons.battery,
                       size: 13,
-                      color: p.ink3),
+                      color: s.charging ? p.on(C.blue) : p.ink3),
                   const SizedBox(width: 3),
-                  Text('${battery.round()}%',
-                      style: F.over.copyWith(color: p.ink3)),
+                  Text(
+                      batteryReadingLabel(battery,
+                          charging: s.charging,
+                          l: AppLocalizations.of(c)),
+                      style: F.over.copyWith(
+                          color: s.charging ? p.on(C.blue) : p.ink3)),
                 ]),
               // IN THE WRAP, not a second trailing pill: this line already
               // wraps at accessibility sizes, and a pill column beside it does
@@ -2543,7 +2547,11 @@ class DeviceDetailView extends StatelessWidget {
                             onTap: onWearing),
                         Divider(color: p.line, height: 1),
                       ],
-                      SetRow(LucideIcons.batteryMedium, C.green,
+                      SetRow(
+                          s.charging
+                              ? LucideIcons.batteryCharging
+                              : LucideIcons.batteryMedium,
+                          s.charging ? C.blue : C.green,
                           l?.devicesBattery ?? 'Battery',
                           value: battery == null ? '' : '${battery.round()}%',
                           // L11 — the band's own charge history, on the row
