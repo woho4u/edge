@@ -643,7 +643,11 @@ Map<String, dynamic> deriveDayBundle(Map<String, dynamic> inputJson) {
   final nremMask = _nremMaskAlignedToNn(d, nnTimes, d.sleepRrTsMs);
   final robustRmssd = nocturnalRmssd(nn, nnTimes,
       stageMaskPerSec: nremMask, coverage: rrCov);
-  final sleepSessionRmssdMetric = sleepSessionRmssdDetail(
+  // cracked-whoop round 12: the nightly headline keeps genuine breathing
+  // swings (correctRr alpha 6.5, beats paired only when truly adjacent, no
+  // jitter refusal). The shipped filters read high-HRV sleepers low and refuse
+  // about a third of nights; see openstrap_analytics rsa_preserving.dart.
+  final sleepSessionRmssdMetric = sleepSessionRmssdRsa(
     d.sleepRrMs,
     d.sleepRrTsMs,
     startSec: d.sleepOnsetSec,
@@ -716,8 +720,12 @@ Map<String, dynamic> deriveDayBundle(Map<String, dynamic> inputJson) {
   final stress = baevskyStressIndex(nn, nnTimesMs: nnTimes);
 
   // ── RESPIRATION (sleep-windowed) ───────────────────────────────────────────
+  // cracked-whoop round 12: per-epoch Lomb-Scargle breathing peaks (0.15 Hz
+  // floor, no slow-heart-rate ceiling), median over the session. The shipped
+  // rsaRespRate refused many nights and read ~2 br/min low.
   final resp = nn.length >= 30
-      ? rsaRespRate(nn, nnTimes, artifactFraction: artifactFraction)
+      ? sleepRespRateLs(d.sleepRrMs, d.sleepRrTsMs,
+          startSec: d.sleepOnsetSec, endSec: d.sleepOffsetSec)
       : Metric<RespEstimate>.absent(
           tier: Tier.estimate,
           inputs_used: const ['rr_cleaned'],

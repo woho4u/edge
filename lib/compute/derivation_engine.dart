@@ -1856,7 +1856,10 @@ import 'vendor_sleep.dart';
 // the cracked-whoop five-head model (segmentSleep(whoopSleep: true)), so every
 // stored night is re-staged. Window detection, naps and vendor-staged nights
 // are unchanged; a window with too few beat intervals keeps the rule stager.
-const int kAlgoVersion = 121;
+// 121 → 122 (fork): nightly HRV headline and breathing rate from cracked-whoop
+// round 12 (sleepSessionRmssdRsa, sleepRespRateLs), so every stored night's
+// HRV/resp/readiness baselines are recomputed on one method.
+const int kAlgoVersion = 122;
 /// The sibling SHAs this version was derived against, asserted against
 /// pubspec.yaml in test/db_serve_version_and_reads_test.dart.
 ///
@@ -2045,7 +2048,8 @@ const int kAlgoVersion = 121;
 // REPIN @ 3a7ca34: analytics main, #101 + #100 + #97 + #98, for v119.
 // REPIN @ woho4u/analytics whoopsleep-v8 (3a7ca34 + the five-head stager), v121;
 // then 3c8350a (downloadable model hook, same output, no version move).
-const String kAnalyticsPin = '3c8350a44c465e373e5f4866ed0b9dc54bbc8ffc';
+// REPIN @ 217d3eb: + cracked-whoop round-12 sleep HRV / breathing rate, v122.
+const String kAnalyticsPin = '217d3ebacfdb04b2b006013eea83b42da5fc86c9';
 // Repinned to analytics main's tip, which carries BOTH PR #72 (hrv_freq
 // Welch gap guard) and PR #73 (overreachingConjunction rhr quantum guard) —
 // the two independent kAlgoVersion bumps above (93 and 94). Verified both
