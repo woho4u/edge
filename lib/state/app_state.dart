@@ -65,6 +65,7 @@ import '../compute/inputs/canonical.dart'
 import '../compute/manual_session.dart' show supersededSuggestionIds;
 import '../compute/step_calibration_fit.dart';
 import '../compute/whoopsleep_model_store.dart' as sleep_model;
+import '../data/desktop_sync.dart' as desktop;
 import '../compute/hr_max.dart';
 import '../compute/inputs/measurement_inputs.dart'
     show
@@ -318,7 +319,12 @@ class AppState extends ChangeNotifier {
     log: _log,
     notify: notifyListeners,
     refreshPhoneStepsToday: _refreshPhoneStepsToday,
-    maybeNotifyRecoveryReady: _maybeNotifyRecoveryReady,
+    maybeNotifyRecoveryReady: () async {
+      // Every derive pass ends here: send changed days to the desktop store
+      // too (no-op without an address; see data/desktop_sync.dart).
+      unawaited(runDesktopSync());
+      await _maybeNotifyRecoveryReady();
+    },
     runHealthExport: _runHealthExport,
     healthSyncEnabled: () => healthSyncEnabled,
     telemetryConsent: () => telemetryConsent,
@@ -1341,6 +1347,18 @@ class AppState extends ChangeNotifier {
       _log('[sleep-model] update failed: $e');
       return sleep_model.WhoopSleepUpdate.failed;
     }
+  }
+
+  /// Send days the desktop store hasn't confirmed yet (data/desktop_sync.dart).
+  /// Fired after every derive pass and on foreground; never throws.
+  Future<desktop.DesktopSyncResult?> runDesktopSync({bool force = false}) async {
+    final r = await desktop.syncToDesktop(force: force);
+    if (r != null && (!r.ok || r.sent > 0)) {
+      _log(r.ok
+          ? '[desktop-sync] sent ${r.sent} day(s): ${r.stored} new, ${r.unchanged} unchanged'
+          : '[desktop-sync] failed: ${r.error}');
+    }
+    return r;
   }
 
   /// Go back to the built-in sleep model and re-analyze stored days.

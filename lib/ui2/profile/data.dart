@@ -28,6 +28,7 @@ import '../../data/day_label.dart' show dayLabelOf;
 import '../../compute/derivation_engine.dart' show CompactStep;
 import '../../compute/whoopsleep_model_store.dart' as sleep_model;
 import '../../data/db.dart';
+import '../../data/desktop_sync.dart' as desktop;
 import '../../data/export_retention.dart';
 import '../../data/substrate_archive.dart' show SubstrateArchivePolicy;
 import '../../import/backup_crypto.dart';
@@ -76,10 +77,64 @@ class _DataScreenState extends State<DataScreen> {
   /// The compaction step in progress, shown under the spinner.
   String? _progress;
 
+  /// Desktop sync: address (null = off) and the last sync's one-liner.
+  String? _syncEndpoint;
+  String _syncLast = '';
+
   @override
   void initState() {
     super.initState();
     _loadStorage();
+    _loadSync();
+  }
+
+  Future<void> _loadSync() async {
+    final endpoint = await desktop.desktopSyncEndpoint();
+    final last = await desktop.desktopSyncLastResult();
+    if (mounted) {
+      setState(() {
+        _syncEndpoint = endpoint;
+        _syncLast = last;
+      });
+    }
+  }
+
+  /// Ask for the desktop store's address (empty turns syncing off), then send.
+  Future<_Note> _setUpSync(AppState app) async {
+    final field = TextEditingController(text: _syncEndpoint ?? '');
+    final url = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Desktop sync'),
+        content: TextField(
+          controller: field,
+          autocorrect: false,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(hintText: 'https://…/whoop'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, field.text),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    field.dispose();
+    if (url == null) return ('', false);
+    await desktop.setDesktopSyncEndpoint(url);
+    if (url.trim().isEmpty) {
+      await _loadSync();
+      return ('Desktop sync is off.', false);
+    }
+    final r = await app.runDesktopSync(force: true);
+    await _loadSync();
+    if (r == null || !r.ok) {
+      return ("Saved, but the desktop couldn't be reached: ${r?.error}. "
+          'It will retry after the next sync.', true);
+    }
+    return ('Sent ${r.sent} day(s) to the desktop.', false);
   }
 
   Future<void> _loadStorage() async {
@@ -649,6 +704,20 @@ class _DataScreenState extends State<DataScreen> {
                                     false
                                   );
                                 })),
+                ]),
+                const SizedBox(height: S.x5),
+                settingsGroup(c, 'Desktop', [
+                  SetRow(LucideIcons.monitorUp, C.blue, 'Desktop sync',
+                      sub: _syncEndpoint == null
+                          ? 'Off. Sends each analysed day (never raw '
+                              'readings) to your own computer after every '
+                              'sync, for other apps to use. Tap to set the '
+                              'address (${desktop.kDefaultDesktopSyncEndpoint})'
+                          : (_syncLast.isEmpty
+                              ? 'On. Sends after every sync'
+                              : 'On. Last: $_syncLast'),
+                      value: _syncEndpoint == null ? 'Off' : 'On',
+                      onTap: _busy ? null : () => _run(() => _setUpSync(app))),
                 ]),
                 if (_busy) ...[
                   const SizedBox(height: S.x6),

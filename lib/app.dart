@@ -73,6 +73,8 @@ class _OpenStrapAppState extends State<OpenStrapApp> with WidgetsBindingObserver
       final app = context.read<AppState>();
       if (app.isPaired) app.openSession();
       unawaited(app.runSleepModelUpdateIfDue());
+      // Days the desktop store hasn't received yet (no-op without an address).
+      unawaited(app.runDesktopSync());
     });
   }
 
